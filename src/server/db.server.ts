@@ -12,7 +12,11 @@ export { sql };
  */
 function parseDatabaseUrl(url: string): sql.config {
   const match = /^sqlserver:\/\/([^;]+)(;.*)?$/i.exec(url.trim());
-  if (!match) throw new Error("DATABASE_URL must start with sqlserver://");
+  if (!match) {
+    // Show only the scheme, never the credentials, so a wrong or inherited value is easy to spot.
+    const scheme = /^\s*([a-z][a-z0-9+.-]*:\/\/)?/i.exec(url)?.[1] ?? "(no scheme)";
+    throw new Error(`DATABASE_URL must start with sqlserver:// (got "${scheme}")`);
+  }
 
   let host = match[1] ?? "";
   const config: sql.config = {

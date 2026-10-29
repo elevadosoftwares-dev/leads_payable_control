@@ -123,7 +123,8 @@ sample invoices. Data is not copied between databases.
 
 ## Run locally
 
-Requires Node.js 20.12 or newer.
+Requires Node.js 22.9 or newer (`npm start` uses `--env-file-if-exists`). On Node 20.12+ run
+the server with `node --env-file=.env .output/server/index.mjs` instead.
 
 ```sh
 copy .env.example .env   # then edit DATABASE_URL
