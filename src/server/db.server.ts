@@ -10,8 +10,15 @@ export { sql };
  * Parses a Prisma-style SQL Server URL:
  *   sqlserver://HOST[\INSTANCE][:PORT];database=DB;user=USER;password=PASS;encrypt=true;trustServerCertificate=true
  */
-function parseDatabaseUrl(url: string): sql.config {
-  const match = /^sqlserver:\/\/([^;]+)(;.*)?$/i.exec(url.trim());
+function parseDatabaseUrl(rawUrl: string): sql.config {
+  // Tolerate stray quotes around the value: an unclosed or doubled quote in .env, Windows line
+  // endings, or curly quotes / a byte-order mark from text pasted out of a chat or document.
+  const url = rawUrl
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .replace(/^["'\u201C\u201D\u2018\u2019]+|["'\u201C\u201D\u2018\u2019]+$/g, "")
+    .trim();
+  const match = /^sqlserver:\/\/([^;]+)(;.*)?$/i.exec(url);
   if (!match) {
     // Show only the scheme, never the credentials, so a wrong or inherited value is easy to spot.
     const scheme = /^\s*([a-z][a-z0-9+.-]*:\/\/)?/i.exec(url)?.[1] ?? "(no scheme)";
@@ -65,11 +72,14 @@ export function getPool(): Promise<sql.ConnectionPool> {
   if (!poolPromise) {
     const url = process.env["DATABASE_URL"];
     if (!url) throw new Error("Missing DATABASE_URL environment variable.");
-    poolPromise = connectAndMigrate(parseDatabaseUrl(url)).catch((error) => {
-      poolPromise = undefined;
-      console.error("[db] Could not connect to SQL Server:", error);
-      throw new Error("Could not connect to the database.");
-    });
+    // Parse inside the promise chain so a bad URL is logged like any other connection failure.
+    poolPromise = Promise.resolve(url)
+      .then((value) => connectAndMigrate(parseDatabaseUrl(value)))
+      .catch((error) => {
+        poolPromise = undefined;
+        console.error("[db] Could not connect to SQL Server:", error);
+        throw new Error("Could not connect to the database.");
+      });
   }
   return poolPromise;
 }
